@@ -1,0 +1,183 @@
+#include <iostream>
+#include <string>
+#include <vector>
+#include <algorithm>
+#include <iomanip>
+
+class Borrowable {
+protected:
+    std::string title;
+    bool isBorrowed;
+
+public:
+    Borrowable(std::string t) : title(t), isBorrowed(false) {}
+
+    virtual void displayInfo() const {
+        std::cout << "Tiêu đề: " << title 
+                  << (isBorrowed ? " (Đang mượn)" : " (Có sẵn)") << std::endl;
+    }
+
+    virtual void borrow() {
+        if (!isBorrowed) {
+            isBorrowed = true;
+            std::cout << "Bạn đã mượn: " << title << std::endl;
+        } else {
+            std::cout << title << " đã bị mượn." << std::endl;
+        }
+    }
+
+    virtual void returnItem() {
+        if (isBorrowed) {
+            isBorrowed = false;
+            std::cout << "Bạn đã trả: " << title << std::endl;
+        } else {
+            std::cout << title << " không được mượn." << std::endl;
+        }
+    }
+
+    std::string getTitle() const {
+        return title;
+    }
+
+    virtual ~Borrowable() = default;
+};
+
+class Book : public Borrowable {
+private:
+    std::string author;
+    std::string genre;
+
+public:
+    Book(std::string title, std::string author, std::string genre) 
+        : Borrowable(title), author(author), genre(genre) {}
+
+    void displayInfo() const override {
+        std::cout << "Sách - ";
+        Borrowable::displayInfo();
+        std::cout << "Tác giả: " << author << ", Thể loại: " << genre << std::endl;
+    }
+
+    std::string getAuthor() const {
+        return author;
+    }
+
+    std::string getGenre() const {
+        return genre;
+    }
+};
+
+class Magazine : public Borrowable {
+private:
+    std::string publisher;
+    std::string genre;
+
+public:
+    Magazine(std::string title, std::string publisher, std::string genre) 
+        : Borrowable(title), publisher(publisher), genre(genre) {}
+
+    void displayInfo() const override {
+        std::cout << "Tạp chí - ";
+        Borrowable::displayInfo();
+        std::cout << "Nhà xuất bản: " << publisher << ", Thể loại: " << genre << std::endl;
+    }
+
+    std::string getPublisher() const {
+        return publisher;
+    }
+
+    std::string getGenre() const {
+        return genre;
+    }
+};
+
+class Library {
+private:
+    std::vector<Borrowable*> items;
+
+public:
+    void addItem(Borrowable* item) {
+        items.push_back(item);
+    }
+
+    void displayItems() const {
+        for (const auto& item : items) {
+            item->displayInfo();
+            std::cout << "------------------------" << std::endl;
+        }
+    }
+
+    void searchByAuthor(const std::string& author) const {
+        std::cout << "Kết quả tìm kiếm cho tác giả: " << author << std::endl;
+        for (const auto& item : items) {
+            if (const Book* book = dynamic_cast<const Book*>(item)) {
+                if (book->getAuthor() == author) {
+                    book->displayInfo();
+                }
+            }
+        }
+    }
+void searchByGenre(const std::string& genre) const {
+        std::cout << "Kết quả tìm kiếm cho thể loại: " << genre << std::endl;
+        for (const auto& item : items) {
+            if (const Book* book = dynamic_cast<const Book*>(item)) {
+                if (book->getGenre() == genre) {
+                    book->displayInfo();
+                }
+            } else if (const Magazine* magazine = dynamic_cast<const Magazine*>(item)) {
+                if (magazine->getGenre() == genre) {
+                    magazine->displayInfo();
+                }
+            }
+        }
+    }
+
+    void sortByTitle() {
+        std::sort(items.begin(), items.end(), [](Borrowable* a, Borrowable* b) {
+            return a->getTitle() < b->getTitle();
+        });
+    }
+
+    void sortByAuthor() {
+        std::sort(items.begin(), items.end(), [](Borrowable* a, Borrowable* b) {
+            const Book* bookA = dynamic_cast<Book*>(a);
+            const Book* bookB = dynamic_cast<Book*>(b);
+            if (bookA && bookB) {
+                return bookA->getAuthor() < bookB->getAuthor();
+            }
+            return bookA != nullptr; // Sắp xếp sách lên trước nếu bookA là sách
+        });
+    }
+
+    ~Library() {
+        for (auto item : items) {
+            delete item;
+        }
+    }
+};
+
+int main() {
+    Library myLibrary;
+    myLibrary.addItem(new Book("C++ Programming", "Bjarne Stroustrup", "Khoa học máy tính"));
+    myLibrary.addItem(new Magazine("Tech Trends", "Tech Publisher", "Công nghệ"));
+    myLibrary.addItem(new Book("Effective C++", "Scott Meyers", "Khoa học máy tính"));
+    myLibrary.addItem(new Magazine("Nature", "Nature Publishing", "Khoa học"));
+
+    std::cout << "Danh sách tài liệu trong thư viện:" << std::endl;
+    myLibrary.displayItems();
+
+    std::cout << "Tìm kiếm theo tác giả 'Bjarne Stroustrup':" << std::endl;
+    myLibrary.searchByAuthor("Bjarne Stroustrup");
+
+    std::cout << "\nTìm kiếm theo thể loại 'Khoa học máy tính':" << std::endl;
+    myLibrary.searchByGenre("Khoa học máy tính");
+
+    std::cout << "\nSắp xếp tài liệu theo tiêu đề:" << std::endl;
+    myLibrary.sortByTitle();
+    myLibrary.displayItems();
+
+    std::cout << "\nSắp xếp tài liệu theo tác giả:" << std::endl;
+    myLibrary.sortByAuthor();
+    myLibrary.displayItems();
+
+    return 0;
+}
