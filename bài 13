@@ -1,0 +1,386 @@
+#include <iostream>
+#include <string>
+#include <vector>
+#include <algorithm>
+#include <iomanip>
+#include <stdexcept>
+#include <fstream>
+#include <sstream> // Thêm thư viện này
+
+class Borrowable {
+protected:
+    std::string title;
+    bool isBorrowed;
+
+public:
+    Borrowable(std::string t) : title(t), isBorrowed(false) {}
+
+    virtual void displayInfo() const {
+        std::cout << "Tiêu đề: " << title 
+                  << (isBorrowed ? " (Đang mượn)" : " (Có sẵn)") << std::endl;
+    }
+
+    virtual void borrow() {
+        if (!isBorrowed) {
+            isBorrowed = true;
+            std::cout << "Bạn đã mượn: " << title << std::endl;
+        } else {
+            throw std::runtime_error(title + " đã bị mượn.");
+        }
+    }
+
+    virtual void returnItem() {
+        if (isBorrowed) {
+            isBorrowed = false;
+            std::cout << "Bạn đã trả: " << title << std::endl;
+        } else {
+            throw std::runtime_error(title + " không được mượn.");
+        }
+    }
+
+    std::string getTitle() const {
+        return title;
+    }
+
+    bool getIsBorrowed() const {
+        return isBorrowed;
+    }
+
+    virtual std::string serialize() const = 0; // Phương thức để lưu trữ dữ liệu
+    virtual ~Borrowable() = default;
+};
+
+class Book : public Borrowable {
+private:
+    std::string author;
+    std::string genre;
+
+public:
+    Book(std::string title, std::string author, std::string genre) 
+        : Borrowable(title), author(author), genre(genre) {}
+
+    void displayInfo() const override {
+        std::cout << "Sách - ";
+        Borrowable::displayInfo();
+        std::cout << "Tác giả: " << author << ", Thể loại: " << genre << std::endl;
+    }
+
+    std::string getAuthor() const {
+        return author;
+    }
+
+    std::string getGenre() const {
+        return genre;
+    }
+
+    std::string serialize() const override {
+        return "Book|" + title + "|" + author + "|" + genre + "|" + (isBorrowed ? "1" : "0");
+    }
+};
+
+class Magazine : public Borrowable {
+private:
+    std::string publisher;
+    std::string genre;
+
+public:
+    Magazine(std::string title, std::string publisher, std::string genre) 
+        : Borrowable(title), publisher(publisher), genre(genre) {}
+
+    void displayInfo() const override {
+        std::cout << "Tạp chí - ";
+        Borrowable::displayInfo();
+        std::cout << "Nhà xuất bản: " << publisher << ", Thể loại: " << genre << std::endl;
+    }
+
+    std::string getPublisher() const {
+        return publisher;
+    }
+
+    std::string getGenre() const {
+        return genre;
+    }
+
+    std::string serialize() const override {
+        return "Magazine|" + title + "|" + publisher + "|" + genre + "|" + (isBorrowed ? "1" : "0");
+    }
+};
+
+class Library {
+private:
+    std::vector<Borrowable*> items;
+    const int maxBorrowableItems = 3; // Giới hạn số lượng mục có thể mượn
+
+public:
+    void addItem(Borrowable* item) {
+items.push_back(item);
+    }
+
+    void displayItems() const {
+        if (items.empty()) {
+            std::cout << "Thư viện hiện không có tài liệu nào." << std::endl;
+            return;
+        }
+        for (const auto& item : items) {
+            item->displayInfo();
+            std::cout << "------------------------" << std::endl;
+        }
+    }
+
+    void searchByAuthor(const std::string& author) const {
+        std::cout << "Kết quả tìm kiếm cho tác giả: " << author << std::endl;
+        bool found = false;
+        for (const auto& item : items) {
+            if (const Book* book = dynamic_cast<const Book*>(item)) {
+                if (book->getAuthor() == author) {
+                    book->displayInfo();
+                    found = true;
+                }
+            }
+        }
+        if (!found) {
+            std::cout << "Không tìm thấy tài liệu nào của tác giả: " << author << std::endl;
+        }
+    }
+
+    void searchByGenre(const std::string& genre) const {
+        std::cout << "Kết quả tìm kiếm cho thể loại: " << genre << std::endl;
+        bool found = false;
+        for (const auto& item : items) {
+            if (const Book* book = dynamic_cast<const Book*>(item)) {
+                if (book->getGenre() == genre) {
+                    book->displayInfo();
+                    found = true;
+                }
+            } else if (const Magazine* magazine = dynamic_cast<const Magazine*>(item)) {
+                if (magazine->getGenre() == genre) {
+                    magazine->displayInfo();
+                    found = true;
+                }
+            }
+        }
+        if (!found) {
+            std::cout << "Không tìm thấy tài liệu nào thuộc thể loại: " << genre << std::endl;
+        }
+    }
+
+    Borrowable* findItemByTitle(const std::string& title) {
+        for (auto& item : items) {
+            if (item->getTitle() == title) {
+                return item;
+            }
+        }
+        return nullptr; // Trả về nullptr nếu không tìm thấy
+    }
+
+    void borrowItem(Borrowable& item) {
+        static int borrowedCount = 0; // Số lượng mục đã mượn
+        if (borrowedCount >= maxBorrowableItems) {
+            throw std::runtime_error("Bạn đã vượt quá số lượng mục có thể mượn.");
+        }
+        item.borrow();
+        borrowedCount++;
+    }
+
+    void returnItem(Borrowable& item) {
+        item.returnItem();
+    }
+
+    void sortByTitle() {
+        std::sort(items.begin(), items.end(), [](Borrowable* a, Borrowable* b) {
+            return a->getTitle() < b->getTitle();
+        });
+    }
+
+    void sortByAuthor() {
+        std::sort(items.begin(), items.end(), [](Borrowable* a, Borrowable* b) {
+            const Book* bookA = dynamic_cast<Book*>(a);
+            const Book* bookB = dynamic_cast<Book*>(b);
+            if (bookA && bookB) {
+                return bookA->getAuthor() < bookB->getAuthor();
+}
+            return false; // Không so sánh nếu không phải sách
+        });
+    }
+
+    void saveToFile(const std::string& filename) const {
+        std::ofstream outFile(filename);
+        if (!outFile) {
+            throw std::runtime_error("Không thể mở file để ghi.");
+        }
+        for (const auto& item : items) {
+            outFile << item->serialize() << std::endl;
+        }
+        outFile.close();
+        std::cout << "Dữ liệu đã được lưu vào file: " << filename << std::endl;
+    }
+
+    void loadFromFile(const std::string& filename) {
+        std::ifstream inFile(filename);
+        if (!inFile) {
+            throw std::runtime_error("Không thể mở file để đọc.");
+        }
+        std::string line;
+        while (std::getline(inFile, line)) {
+            std::istringstream iss(line);
+            std::string type, title, authorOrPublisher, genre, borrowedStatus;
+            std::getline(iss, type, '|');
+            std::getline(iss, title, '|');
+            std::getline(iss, authorOrPublisher, '|');
+            std::getline(iss, genre, '|');
+            std::getline(iss, borrowedStatus);
+
+            Borrowable* item = nullptr;
+            if (type == "Book") {
+                item = new Book(title, authorOrPublisher, genre);
+            } else if (type == "Magazine") {
+                item = new Magazine(title, authorOrPublisher, genre);
+            }
+
+            if (item) {
+                if (borrowedStatus == "1") {
+                    item->borrow();
+                }
+                addItem(item);
+            }
+        }
+        inFile.close();
+        std::cout << "Dữ liệu đã được tải từ file: " << filename << std::endl;
+    }
+
+    ~Library() {
+        for (auto item : items) {
+            delete item;
+        }
+    }
+};
+
+void showMenu(Library& library) {
+    int choice;
+    std::string title, author, genre, publisher, filename;
+
+    do {
+        std::cout << "\n--- Hệ thống quản lý tài liệu ---" << std::endl;
+        std::cout << "1. Thêm sách" << std::endl;
+        std::cout << "2. Thêm tạp chí" << std::endl;
+        std::cout << "3. Hiển thị danh sách tài liệu" << std::endl;
+        std::cout << "4. Tìm kiếm theo tác giả" << std::endl;
+        std::cout << "5. Tìm kiếm theo thể loại" << std::endl;
+        std::cout << "6. Mượn tài liệu" << std::endl;
+        std::cout << "7. Trả tài liệu" << std::endl;
+        std::cout << "8. Sắp xếp theo tiêu đề" << std::endl;
+        std::cout << "9. Sắp xếp theo tác giả" << std::endl;
+        std::cout << "10. Lưu dữ liệu vào file" << std::endl;
+        std::cout << "11. Tải dữ liệu từ file" << std::endl;
+        std::cout << "0. Thoát" << std::endl;
+        std::cout << "Chọn một tùy chọn: ";
+        std::cin >> choice;
+
+        switch (choice) {
+            case 1:
+                std::cout << "Nhập tiêu đề sách: ";
+                std::cin.ignore();
+std::getline(std::cin, title);
+                std::cout << "Nhập tác giả: ";
+                std::getline(std::cin, author);
+                std::cout << "Nhập thể loại: ";
+                std::getline(std::cin, genre);
+                library.addItem(new Book(title, author, genre));
+                break;
+            case 2:
+                std::cout << "Nhập tiêu đề tạp chí: ";
+                std::cin.ignore();
+                std::getline(std::cin, title);
+                std::cout << "Nhập nhà xuất bản: ";
+                std::getline(std::cin, publisher);
+                std::cout << "Nhập thể loại: ";
+                std::getline(std::cin, genre);
+                library.addItem(new Magazine(title, publisher, genre));
+                break;
+            case 3:
+                library.displayItems();
+                break;
+            case 4:
+                std::cout << "Nhập tác giả cần tìm: ";
+                std::cin.ignore();
+                std::getline(std::cin, author);
+                library.searchByAuthor(author);
+                break;
+            case 5:
+                std::cout << "Nhập thể loại cần tìm: ";
+                std::cin.ignore();
+                std::getline(std::cin, genre);
+                library.searchByGenre(genre);
+                break;
+            case 6: {
+                std::cout << "Nhập tiêu đề tài liệu cần mượn: ";
+                std::cin.ignore();
+                std::getline(std::cin, title);
+                Borrowable* item = library.findItemByTitle(title);
+                if (item) {
+                    try {
+                        library.borrowItem(*item);
+                    } catch (const std::runtime_error& e) {
+                        std::cout << "Lỗi: " << e.what() << std::endl;
+                    }
+                } else {
+                    std::cout << "Không tìm thấy tài liệu với tiêu đề: " << title << std::endl;
+                }
+                break;
+            }
+            case 7: {
+                std::cout << "Nhập tiêu đề tài liệu cần trả: ";
+                std::cin.ignore();
+                std::getline(std::cin, title);
+                Borrowable* item = library.findItemByTitle(title);
+                if (item) {
+                    try {
+                        library.returnItem(*item);
+                    } catch (const std::runtime_error& e) {
+                        std::cout << "Lỗi: " << e.what() << std::endl;
+                    }
+                } else {
+                    std::cout << "Không tìm thấy tài liệu với tiêu đề: " << title << std::endl;
+                }
+                break;
+            }
+            case 8:
+                library.sortByTitle();
+                std::cout << "Đã sắp xếp theo tiêu đề." << std::endl;
+                break;
+            case 9:
+                library.sortByAuthor();
+std::cout << "Đã sắp xếp theo tác giả." << std::endl;
+                break;
+            case 10:
+                std::cout << "Nhập tên file để lưu: ";
+                std::cin >> filename;
+                try {
+                    library.saveToFile(filename);
+                } catch (const std::runtime_error& e) {
+                    std::cout << "Lỗi: " << e.what() << std::endl;
+                }
+                break;
+            case 11:
+                std::cout << "Nhập tên file để tải: ";
+                std::cin >> filename;
+                try {
+                    library.loadFromFile(filename);
+                } catch (const std::runtime_error& e) {
+                    std::cout << "Lỗi: " << e.what() << std::endl;
+                }
+                break;
+            case 0:
+                std::cout << "Thoát chương trình." << std::endl;
+                break;
+            default:
+                std::cout << "Lựa chọn không hợp lệ. Vui lòng thử lại." << std::endl;
+        }
+    } while (choice != 0);
+}
+
+int main() {
+    Library myLibrary;
+    showMenu(myLibrary);
+    return 0;
+}
