@@ -1,0 +1,98 @@
+#include <iostream>
+#include <string>
+#include <vector>
+#include <limits>
+
+class User {
+private:
+    std::string username;
+    std::string password;
+
+public:
+    User(std::string user, std::string pass) : username(user), password(pass) {}
+
+    std::string getUsername() const {
+        return username;
+    }
+
+    bool checkPassword(const std::string& pass) const {
+        return password == pass;
+    }
+};
+
+class UserManager {
+private:
+    std::vector<User> users;
+
+public:
+    void registerUser(const std::string& username, const std::string& password) {
+        // Kiểm tra trùng lặp người dùng
+        for (const auto& user : users) {
+            if (user.getUsername() == username) {
+                std::cout << "Tên người dùng đã tồn tại. Vui lòng chọn tên khác." << std::endl;
+                return;
+            }
+        }
+        users.emplace_back(username, password);
+        std::cout << "Đăng ký thành công!" << std::endl;
+    }
+
+    bool loginUser(const std::string& username, const std::string& password) {
+        for (const auto& user : users) {
+            if (user.getUsername() == username && user.checkPassword(password)) {
+                std::cout << "Đăng nhập thành công!" << std::endl;
+                return true;
+            }
+        }
+        std::cout << "Tài khoản hoặc mật khẩu không đúng." << std::endl;
+        return false;
+    }
+};
+
+void showMenu(UserManager& userManager) {
+    int choice;
+    std::string username, password;
+
+    do {
+        std::cout << "\n--- Hệ thống quản lý người dùng ---" << std::endl;
+        std::cout << "1. Đăng ký" << std::endl;
+        std::cout << "2. Đăng nhập" << std::endl;
+        std::cout << "0. Thoát" << std::endl;
+        std::cout << "Chọn một tùy chọn: ";
+
+        // Đảm bảo rằng đầu vào là hợp lệ
+        while (!(std::cin >> choice)) {
+            std::cin.clear(); // Xóa trạng thái lỗi
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // Bỏ qua đầu vào không hợp lệ
+            std::cout << "Lựa chọn không hợp lệ. Vui lòng nhập lại: ";
+        }
+
+        switch (choice) {
+            case 1:
+                std::cout << "Nhập tên người dùng: ";
+                std::cin >> username;
+                std::cout << "Nhập mật khẩu: ";
+                std::cin >> password;
+                userManager.registerUser(username, password);
+                break;
+            case 2:
+                std::cout << "Nhập tên người dùng: ";
+                std::cin >> username;
+                std::cout << "Nhập mật khẩu: ";
+                std::cin >> password;
+                userManager.loginUser(username, password);
+                break;
+            case 0:
+                std::cout << "Thoát chương trình." << std::endl;
+                break;
+            default:
+std::cout << "Lựa chọn không hợp lệ. Vui lòng thử lại." << std::endl;
+        }
+    } while (choice != 0);
+}
+
+int main() {
+    UserManager userManager;
+    showMenu(userManager);
+    return 0;
+}
