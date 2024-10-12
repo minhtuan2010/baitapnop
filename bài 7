@@ -1,0 +1,184 @@
+#include <iostream>
+#include <string>
+#include <vector>
+#include <iomanip>
+
+class Account {
+protected:
+    std::string accountNumber;
+    std::string accountHolder;
+    double balance;
+
+public:
+    Account(std::string accNumber, std::string holder, double initialBalance)
+        : accountNumber(accNumber), accountHolder(holder), balance(initialBalance) {}
+
+    virtual void displayInfo() const {
+        std::cout << "Số tài khoản: " << accountNumber
+                  << ", Chủ tài khoản: " << accountHolder
+                  << ", Số dư: " << std::fixed << std::setprecision(2) << balance << " VNĐ" << std::endl;
+    }
+
+    virtual void deposit(double amount) {
+        balance += amount;
+        std::cout << "Đã nạp: " << amount << " VNĐ vào tài khoản " << accountNumber << std::endl;
+    }
+
+    virtual bool withdraw(double amount) {
+        if (amount <= balance) {
+            balance -= amount;
+            std::cout << "Đã rút: " << amount << " VNĐ từ tài khoản " << accountNumber << std::endl;
+            return true;
+        }
+        std::cout << "Số dư không đủ để rút " << amount << " VNĐ từ tài khoản " << accountNumber << std::endl;
+        return false;
+    }
+
+    std::string getAccountNumber() const { return accountNumber; }
+
+    bool transfer(Account& toAccount, double amount) {
+        if (withdraw(amount)) {
+            toAccount.deposit(amount);
+            std::cout << "Đã chuyển " << amount << " VNĐ từ tài khoản " << accountNumber
+                      << " đến tài khoản " << toAccount.getAccountNumber() << std::endl;
+            return true;
+        }
+        return false;
+    }
+
+    virtual ~Account() {} // Destructor ảo
+};
+
+class FixedDepositAccount : public Account {
+private:
+    double interestRate;
+    int term; // Thời hạn cố định (tháng)
+
+public:
+    FixedDepositAccount(std::string accNumber, std::string holder, double initialBalance, double rate, int termInMonths)
+        : Account(accNumber, holder, initialBalance), interestRate(rate), term(termInMonths) {}
+
+    void displayInfo() const override {
+        Account::displayInfo();
+        std::cout << "Lãi suất: " << interestRate << "%, Thời hạn: " << term << " tháng" << std::endl;
+    }
+};
+
+class Bank {
+private:
+    std::vector<Account*> accounts;
+
+public:
+    void addAccount(Account* acc) {
+        accounts.push_back(acc);
+    }
+
+    Account* findAccount(const std::string& accNumber) {
+        for (auto& acc : accounts) {
+            if (acc->getAccountNumber() == accNumber) {
+                return acc;
+            }
+        }
+        std::cout << "Không tìm thấy tài khoản với số tài khoản: " << accNumber << std::endl;
+        return nullptr;
+    }
+
+    void displayAllAccounts() const {
+        for (const auto& acc : accounts) {
+            acc->displayInfo();
+            std::cout << "------------------------" << std::endl;
+        }
+    }
+~Bank() { // Destructor to clean up allocated memory
+        for (auto account : accounts) {
+            delete account;
+        }
+    }
+};
+
+void showMenu(Bank& bank) {
+    int choice;
+    std::string accNumber, holder;
+    double amount, interestRate;
+    int term;
+
+    do {
+        std::cout << "---- Menu Ngân hàng ----" << std::endl;
+        std::cout << "1. Thêm tài khoản thường" << std::endl;
+        std::cout << "2. Thêm tài khoản tiết kiệm cố định" << std::endl;
+        std::cout << "3. Tìm tài khoản" << std::endl;
+        std::cout << "4. Chuyển tiền" << std::endl;
+        std::cout << "5. Hiển thị tất cả tài khoản" << std::endl;
+        std::cout << "0. Thoát" << std::endl;
+        std::cout << "Chọn một tùy chọn: ";
+        std::cin >> choice;
+
+        switch (choice) {
+            case 1:
+                std::cout << "Nhập số tài khoản: ";
+                std::cin >> accNumber;
+                std::cout << "Nhập tên chủ tài khoản: ";
+                std::cin.ignore();
+                std::getline(std::cin, holder);
+                std::cout << "Nhập số dư khởi đầu: ";
+                std::cin >> amount;
+                bank.addAccount(new Account(accNumber, holder, amount));
+                break;
+            case 2:
+                std::cout << "Nhập số tài khoản: ";
+                std::cin >> accNumber;
+                std::cout << "Nhập tên chủ tài khoản: ";
+                std::cin.ignore();
+                std::getline(std::cin, holder);
+                std::cout << "Nhập số dư khởi đầu: ";
+                std::cin >> amount;
+                std::cout << "Nhập lãi suất: ";
+                std::cin >> interestRate;
+                std::cout << "Nhập thời hạn (tháng): ";
+                std::cin >> term;
+                bank.addAccount(new FixedDepositAccount(accNumber, holder, amount, interestRate, term));
+                break;
+            case 3:
+                std::cout << "Nhập số tài khoản cần tìm: ";
+                std::cin >> accNumber;
+                {
+                    Account* foundAccount = bank.findAccount(accNumber);
+                    if (foundAccount) {
+                        foundAccount->displayInfo();
+                    }
+                }
+                break;
+            case 4:
+                {
+                    std::string fromAcc, toAcc;
+                    std::cout << "Nhập số tài khoản chuyển tiền từ: ";
+                    std::cin >> fromAcc;
+                    std::cout << "Nhập số tài khoản chuyển tiền đến: ";
+                    std::cin >> toAcc;
+                    std::cout << "Nhập số tiền muốn chuyển: ";
+                    std::cin >> amount;
+
+                    Account* fromAccount = bank.findAccount(fromAcc);
+                    Account* toAccount = bank.findAccount(toAcc);
+                    if (fromAccount && toAccount) {
+fromAccount->transfer(*toAccount, amount);
+                    }
+                }
+                break;
+            case 5:
+                bank.displayAllAccounts();
+                break;
+            case 0:
+                std::cout << "Thoát chương trình." << std::endl;
+                break;
+            default:
+                std::cout << "Lựa chọn không hợp lệ. Vui lòng thử lại." << std::endl;
+        }
+    } while (choice != 0);
+}
+
+int main() {
+    Bank myBank;
+    showMenu(myBank);
+    return 0;
+}
